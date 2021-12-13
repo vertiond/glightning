@@ -3,7 +3,7 @@ package jrpc2_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sputn1ck/glightning/jrpc2"
+	"github.com/vertiond/glightning/jrpc2"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"

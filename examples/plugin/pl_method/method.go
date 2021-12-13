@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/sputn1ck/glightning/glightning"
-	"github.com/sputn1ck/glightning/jrpc2"
+	"github.com/vertiond/glightning/glightning"
+	"github.com/vertiond/glightning/jrpc2"
 	"log"
 	"os"
 )

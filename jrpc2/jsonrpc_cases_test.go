@@ -1,7 +1,7 @@
 package jrpc2_test
 
 import (
-	"github.com/sputn1ck/glightning/jrpc2"
+	"github.com/vertiond/glightning/jrpc2"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"os"

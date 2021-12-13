@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/sputn1ck/glightning/glightning"
+	"github.com/vertiond/glightning/glightning"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"

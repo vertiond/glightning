@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sputn1ck/glightning/jrpc2"
+	"github.com/vertiond/glightning/jrpc2"
 	"log"
 	"path/filepath"
 )

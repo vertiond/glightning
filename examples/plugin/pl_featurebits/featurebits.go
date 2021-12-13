@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/sputn1ck/glightning/glightning"
+	"github.com/vertiond/glightning/glightning"
 	"log"
 	"math/big"
 	"os"

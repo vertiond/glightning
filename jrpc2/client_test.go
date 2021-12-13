@@ -2,7 +2,7 @@ package jrpc2_test
 
 import (
 	"bufio"
-	"github.com/sputn1ck/glightning/jrpc2"
+	"github.com/vertiond/glightning/jrpc2"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"log"

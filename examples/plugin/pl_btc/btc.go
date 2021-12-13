@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/sputn1ck/glightning/gbitcoin"
-	"github.com/sputn1ck/glightning/glightning"
+	"github.com/vertiond/glightning/gbitcoin"
+	"github.com/vertiond/glightning/glightning"
 	"log"
 	"os"
 )
