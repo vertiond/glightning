@@ -3,8 +3,8 @@ package glightning_test
 import (
 	"bufio"
 	"fmt"
-	"github.com/niftynei/glightning/glightning"
-	"github.com/niftynei/glightning/jrpc2"
+	"github.com/sputn1ck/glightning/glightning"
+	"github.com/sputn1ck/glightning/jrpc2"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
@@ -500,6 +500,36 @@ func TestHook_InvoicePaymentFail(t *testing.T) {
 	})
 	msg := `{"jsonrpc":"2.0","id":"aloha","method":"invoice_payment","params":{"payment":{"label":"test_4","preimage":"09d686f01fbbc6d36996f6c68b09d62600b9da32bd249892904350e31bc51c6e","msat":"50000msat"}}}`
 	resp := `{"jsonrpc":"2.0","result":{"failure_code":44},"id":"aloha"}`
+	runTest(t, plugin, msg+"\n\n", resp)
+}
+
+func TestHook_Message(t *testing.T) {
+	initFn := getInitFunc(t, func(t *testing.T, options map[string]glightning.Option, config *glightning.Config) {
+		t.Error("Should not have called init when calling get manifest")
+	})
+	plugin := glightning.NewPlugin(initFn)
+	plugin.RegisterHooks(&glightning.Hooks{
+		CustomMsgReceived: func(event *glightning.CustomMsgReceivedEvent) (*glightning.CustomMsgReceivedResponse, error) {
+			return event.Continue(), nil
+		},
+	})
+	msg := `{"jsonrpc":"2.0", "id":"aloha", "method":"custommsg"}`
+	resp := `{"jsonrpc":"2.0","result":{"result":"continue"},"id":"aloha"}`
+	runTest(t, plugin, msg+"\n\n", resp)
+}
+
+func TestHook_MessageFail(t *testing.T) {
+	initFn := getInitFunc(t, func(t *testing.T, options map[string]glightning.Option, config *glightning.Config) {
+		t.Error("Should not have called init when calling get manifest")
+	})
+	plugin := glightning.NewPlugin(initFn)
+	plugin.RegisterHooks(&glightning.Hooks{
+		CustomMsgReceived: func(event *glightning.CustomMsgReceivedEvent) (*glightning.CustomMsgReceivedResponse, error) {
+			return event.Fail(), nil
+		},
+	})
+	msg := `{"jsonrpc":"2.0", "id":"aloha", "method":"custommsg"}`
+	resp := `{"jsonrpc":"2.0","result":{"result":"fail"},"id":"aloha"}`
 	runTest(t, plugin, msg+"\n\n", resp)
 }
 

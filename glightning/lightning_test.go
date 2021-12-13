@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/niftynei/glightning/glightning"
+	"github.com/sputn1ck/glightning/glightning"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
@@ -262,7 +262,7 @@ func TestListPeers(t *testing.T) {
 					OutPaymentsFulfilled:     123,
 					OutMilliSatoshiFulfilled: 123,
 					OutgoingFulfilledMsat:    "123msat",
-					Htlcs: htlcs,
+					Htlcs:                    htlcs,
 				},
 			},
 		},
@@ -367,10 +367,10 @@ func TestListPays(t *testing.T) {
 	}
 	assert.Equal(t, []glightning.PaymentFields{
 		glightning.PaymentFields{
-			Bolt11:          "lnbcrt100n1pw5mktvpp53a20un076gq93swhnemdmyday8c88kj9yh7d3k66c49narluy0dsdq0vehhygrzd3hk7eqxqyjw5qcqp2zwqux7t9zyelgcuwc535ugs5sylwdh0fu03xrzugu2zzljwvtg3q4xy22u3mhvxx3ag09jyjpx5lxl7lwux5l2mge8r85havpspm09gpnfxxsw",
-			PaymentPreImage: "c907587348984baf0ae031b286bf1c9427abfa492b254aca67b6809fd9b58d7c",
-			Status:          "complete",
-			Label:           "optional",
+			Bolt11:                 "lnbcrt100n1pw5mktvpp53a20un076gq93swhnemdmyday8c88kj9yh7d3k66c49narluy0dsdq0vehhygrzd3hk7eqxqyjw5qcqp2zwqux7t9zyelgcuwc535ugs5sylwdh0fu03xrzugu2zzljwvtg3q4xy22u3mhvxx3ag09jyjpx5lxl7lwux5l2mge8r85havpspm09gpnfxxsw",
+			PaymentPreImage:        "c907587348984baf0ae031b286bf1c9427abfa492b254aca67b6809fd9b58d7c",
+			Status:                 "complete",
+			Label:                  "optional",
 			AmountSentMilliSatoshi: "10000msat",
 		},
 	}, forwards)
@@ -1097,8 +1097,8 @@ func TestTxPrepare(t *testing.T) {
 	}
 
 	assert.Equal(t, &glightning.TxResult{
-		Tx:   "0200000001060528291e1039a5a2e071ab88ffca8cb9655481f62108dff2e87a1aa139b6450000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a01000000160014e1cfb78798b16dd8f0b05b540f853d07ac5c555200000000",
-		TxId: "cec03e956f3761624f176d62428d9e2cd51cb923258e00e17a34fc49b0da6dde",
+		UnsignedTx: "0200000001060528291e1039a5a2e071ab88ffca8cb9655481f62108dff2e87a1aa139b6450000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a01000000160014e1cfb78798b16dd8f0b05b540f853d07ac5c555200000000",
+		TxId:       "cec03e956f3761624f176d62428d9e2cd51cb923258e00e17a34fc49b0da6dde",
 	}, result)
 }
 
@@ -1133,8 +1133,8 @@ func TestTxPrepareUtxos(t *testing.T) {
 	}
 
 	assert.Equal(t, &glightning.TxResult{
-		Tx:   "0200000001060528291e1039a5a2e071ab88ffca8cb9655481f62108dff2e87a1aa139b6450000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a01000000160014e1cfb78798b16dd8f0b05b540f853d07ac5c555200000000",
-		TxId: "cec03e956f3761624f176d62428d9e2cd51cb923258e00e17a34fc49b0da6dde",
+		UnsignedTx: "0200000001060528291e1039a5a2e071ab88ffca8cb9655481f62108dff2e87a1aa139b6450000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a01000000160014e1cfb78798b16dd8f0b05b540f853d07ac5c555200000000",
+		TxId:       "cec03e956f3761624f176d62428d9e2cd51cb923258e00e17a34fc49b0da6dde",
 	}, result)
 }
 
@@ -1153,8 +1153,8 @@ func TestTxSend(t *testing.T) {
 	}
 
 	assert.Equal(t, &glightning.TxResult{
-		Tx:   "0200000001f56ad611189c96c9ae9499d61872e590a3ba4d55760f7663b0642d81c2b1880d0000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a010000001600146ea01d6c5aaa643076902d1c8b026e9eb47b32c000000000",
-		TxId: "c139ff2ce1c1e1056429c1527262d56da2be096559f554e061da18ee72d5c5ed",
+		UnsignedTx: "0200000001f56ad611189c96c9ae9499d61872e590a3ba4d55760f7663b0642d81c2b1880d0000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a010000001600146ea01d6c5aaa643076902d1c8b026e9eb47b32c000000000",
+		TxId:       "c139ff2ce1c1e1056429c1527262d56da2be096559f554e061da18ee72d5c5ed",
 	}, result)
 }
 
@@ -1172,8 +1172,8 @@ func TestTxDiscard(t *testing.T) {
 	}
 
 	assert.Equal(t, &glightning.TxResult{
-		Tx:   "0200000001f56ad611189c96c9ae9499d61872e590a3ba4d55760f7663b0642d81c2b1880d0000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a010000001600146ea01d6c5aaa643076902d1c8b026e9eb47b32c000000000",
-		TxId: "c139ff2ce1c1e1056429c1527262d56da2be096559f554e061da18ee72d5c5ed",
+		UnsignedTx: "0200000001f56ad611189c96c9ae9499d61872e590a3ba4d55760f7663b0642d81c2b1880d0000000000ffffffff02a086010000000000160014c9096d43f408ea526020262ccdad7c8516b92a81d86a042a010000001600146ea01d6c5aaa643076902d1c8b026e9eb47b32c000000000",
+		TxId:       "c139ff2ce1c1e1056429c1527262d56da2be096559f554e061da18ee72d5c5ed",
 	}, result)
 }
 
@@ -2415,6 +2415,23 @@ func TestGetSharedSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, "b6bd6a8327b5437fb64f202bdc388490841b6cf96057f6b74a0c6a61408aa88d", ss)
+}
+
+func TestDevSendCustomMessage(t *testing.T) {
+	peer := "02e3cd7849f177a46f137ae3bfc1a08fc6a90bf4026c74f83c1ecc8430c282fe96"
+	msg := "aaffff"
+	req := fmt.Sprintf(`{"jsonrpc":"2.0","method":"dev-sendcustommsg","params":{"msg":"%s","node_id":"%s"},"id":1}`, msg, peer)
+	resp := wrapResult(1, `{
+   "status": "Message sent to subdaemon channeld for delivery"
+	}`)
+	lightning, requestQ, replyQ := startupServer(t)
+	go runServerSide(t, req, resp, replyQ, requestQ)
+	result, err := lightning.SendCustomMessage(peer, msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := &glightning.CustomMessageResult{Status: "Message sent to subdaemon channeld for delivery"}
+	assert.Equal(t, expect, result)
 }
 
 func runServerSide(t *testing.T, expectedRequest, reply string, replyQ, requestQ chan []byte) {

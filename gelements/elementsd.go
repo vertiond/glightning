@@ -1,4 +1,4 @@
-package gbitcoin
+package gelements
 
 import (
 	"bytes"
@@ -27,19 +27,19 @@ func isDebug() bool {
 	return debug
 }
 
-type Bitcoin struct {
+type Elements struct {
 	isUp           bool
 	httpClient     *http.Client
 	port           uint
 	host           string
-	bitcoinDir     string
 	requestCounter int64
 	username       string
 	password       string
+	rpcWallet      string
 }
 
-func NewBitcoin(username, password string) *Bitcoin {
-	bt := &Bitcoin{}
+func NewElements(username, password string) *Elements {
+	bt := &Elements{}
 
 	tr := &http.Transport{
 		MaxIdleConns:    20,
@@ -48,14 +48,19 @@ func NewBitcoin(username, password string) *Bitcoin {
 	bt.httpClient = &http.Client{Transport: tr}
 	bt.username = username
 	bt.password = password
+	bt.rpcWallet = ""
 	return bt
 }
-
-func (b *Bitcoin) Endpoint() string {
-	return b.host + ":" + strconv.Itoa(int(b.port))
+func (b *Elements) Endpoint() string {
+	endpoint := b.host + ":" + strconv.Itoa(int(b.port)) + "/wallet/" + b.rpcWallet
+	return endpoint
 }
 
-func (b *Bitcoin) SetTimeout(secs uint) {
+func (b *Elements) SetRpcWallet(rpcWallet string) {
+	b.rpcWallet = rpcWallet
+}
+
+func (b *Elements) SetTimeout(secs uint) {
 	tr := &http.Transport{
 		MaxIdleConns:    20,
 		IdleConnTimeout: time.Duration(secs) * time.Second,
@@ -63,23 +68,22 @@ func (b *Bitcoin) SetTimeout(secs uint) {
 	b.httpClient = &http.Client{Transport: tr}
 }
 
-func (b *Bitcoin) StartUp(host, bitcoinDir string, port uint) error {
+func (e *Elements) StartUp(host string, port uint) error {
 	if host == "" {
-		b.host = defaultRpcHost
+		e.host = defaultRpcHost
 	} else {
-		b.host = host
+		e.host = host
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	b.port = port
-	b.bitcoinDir = bitcoinDir
+	e.port = port
 	var lastErr error
 	for {
 		select {
 		case _ = <-ctx.Done():
 			return errors.New(fmt.Sprintf("Timeout, lastErr %v", lastErr))
 		default:
-			err := b.Echo()
+			err := e.Echo()
 			if err == nil {
 				return nil
 			}
@@ -95,7 +99,7 @@ func (b *Bitcoin) StartUp(host, bitcoinDir string, port uint) error {
 }
 
 // Blocking!
-func (b *Bitcoin) request(m jrpc2.Method, resp interface{}) error {
+func (b *Elements) request(m jrpc2.Method, resp interface{}) error {
 
 	id := b.NextId()
 	mr := &jrpc2.Request{id, m}
@@ -103,6 +107,7 @@ func (b *Bitcoin) request(m jrpc2.Method, resp interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	if _, ok := os.LookupEnv("GOLIGHT_DEBUG_IO"); ok {
 		log.Println(string(jbytes))
 	}
@@ -167,7 +172,7 @@ func (r *PingRequest) Name() string {
 	return "ping"
 }
 
-func (b *Bitcoin) Ping() (bool, error) {
+func (b *Elements) Ping() (bool, error) {
 	var result string
 	err := b.request(&PingRequest{}, &result)
 	return err == nil, err
@@ -180,7 +185,7 @@ func (r *EchoRequest) Name() string {
 	return "echo"
 }
 
-func (b *Bitcoin) Echo() error {
+func (b *Elements) Echo() error {
 	var result interface{}
 	err := b.request(&EchoRequest{}, &result)
 	return err
@@ -236,7 +241,7 @@ type Bip9Stats struct {
 	Possible  bool   `json:"possible"`
 }
 
-func (b *Bitcoin) GetChainInfo() (*ChainInfo, error) {
+func (b *Elements) GetChainInfo() (*ChainInfo, error) {
 	var result ChainInfo
 	err := b.request(&GetBlockChainInfoRequest{}, &result)
 	return &result, err
@@ -250,7 +255,7 @@ func (r *GetBlockHashRequest) Name() string {
 	return "getblockhash"
 }
 
-func (b *Bitcoin) GetBlockHash(height uint32) (string, error) {
+func (b *Elements) GetBlockHash(height uint32) (string, error) {
 	var result string
 	err := b.request(&GetBlockHashRequest{height}, &result)
 	return result, err
@@ -276,30 +281,10 @@ func (r *GetBlockRequest) Name() string {
 }
 
 // fetches raw block hex-string
-func (b *Bitcoin) GetRawBlock(blockhash string) (string, error) {
+func (b *Elements) GetRawBlock(blockhash string) (string, error) {
 	var result string
 	err := b.request(&GetBlockRequest{blockhash, RawBlock}, &result)
 	return result, err
-}
-
-type GetRawTransactionReq struct {
-	TxId      string `json:"txid"`
-	Blockhash string `json:"blockhash,omitempty"`
-}
-
-func (r *GetRawTransactionReq) Name() string {
-	return "getrawtransaction"
-}
-
-func (b *Bitcoin) GetRawtransaction(txId string) (string, error) {
-	var resp string
-	err := b.request(&GetRawTransactionReq{TxId: txId}, &resp)
-	return resp, err
-}
-func (b *Bitcoin) GetRawtransactionWithBlockHash(txId string, blockHash string) (string, error) {
-	var resp string
-	err := b.request(&GetRawTransactionReq{TxId: txId, Blockhash: blockHash}, &resp)
-	return resp, err
 }
 
 type EstimateFeeRequest struct {
@@ -321,7 +306,7 @@ func (fr *FeeResponse) SatPerKb() uint64 {
 	return ConvertBtc(fr.FeeRate)
 }
 
-func (b *Bitcoin) EstimateFee(blocks uint32, mode string) (*FeeResponse, error) {
+func (b *Elements) EstimateFee(blocks uint32, mode string) (*FeeResponse, error) {
 	var result FeeResponse
 	err := b.request(&EstimateFeeRequest{blocks, mode}, &result)
 	return &result, err
@@ -345,7 +330,7 @@ type TxOutResp struct {
 	Coinbase      bool       `json:"coinbase"`
 }
 
-func (b *Bitcoin) GetTxOut(txid string, vout uint32) (*TxOutResp, error) {
+func (b *Elements) GetTxOut(txid string, vout uint32) (*TxOutResp, error) {
 	var result TxOutResp
 	err := b.request(&GetTxOutRequest{txid, vout, true}, &result)
 
@@ -378,10 +363,10 @@ func (r *GetNewAddressRequest) Name() string {
 	return "getnewaddress"
 }
 
-func (b *Bitcoin) GetNewAddress(addrType AddrType) (string, error) {
+func (b *Elements) GetNewAddress(addrType int) (string, error) {
 	var result string
 	err := b.request(&GetNewAddressRequest{
-		AddressType: addrType.String(),
+		AddressType: AddrType(addrType).String(),
 	}, &result)
 	return result, err
 }
@@ -396,11 +381,11 @@ func (r *GenerateToAddrRequest) Name() string {
 	return "generatetoaddress"
 }
 
-func (b *Bitcoin) GenerateToAddress(address string, numBlocks uint) ([]string, error) {
+func (b *Elements) GenerateToAddress(address string, numBlocks uint) ([]string, error) {
 	var resp []string
 	err := b.request(&GenerateToAddrRequest{
-		NumBlocks: numBlocks,
 		Address:   address,
+		NumBlocks: numBlocks,
 	}, &resp)
 	return resp, err
 }
@@ -414,18 +399,24 @@ type SendToAddrReq struct {
 	Replaceable           bool   `json:"replaceable,omitempty"`
 	ConfirmationTarget    uint   `json:"conf_target,omitempty"`
 	FeeEstimateMode       string `json:"estimate_mode,omitempty"`
+	AssetLabel            string `json:"assetlabel"`
 }
 
 func (r *SendToAddrReq) Name() string {
 	return "sendtoaddress"
 }
 
-func (b *Bitcoin) SendToAddress(address, amount string) (string, error) {
+func (b *Elements) SendToAddress(address, amount string) (string, error) {
 	var result string
 	err := b.request(&SendToAddrReq{
 		Address: address,
 		Amount:  amount,
 	}, &result)
+	return result, err
+}
+func (b *Elements) SendToAddressCustom(req *SendToAddrReq) (string, error) {
+	var result string
+	err := b.request(req, &result)
 	return result, err
 }
 
@@ -446,18 +437,6 @@ func (o *TxOut) Marshal() []byte {
 	amt := float64(o.Satoshi) / math.Pow(10, 8)
 	log.Printf(`{"%s":"%f"`, o.Address, amt)
 	return []byte(fmt.Sprintf(`{"%s":"%f"}`, o.Address, amt))
-}
-
-type GetBlockCountReq struct{}
-
-func (r *GetBlockCountReq) Name() string {
-	return "getblockcount"
-}
-
-func (b *Bitcoin) GetBlockHeight() (uint64, error) {
-	var resp uint64
-	err := b.request(&GetBlockCountReq{}, &resp)
-	return resp, err
 }
 
 // Because we're using a weird JSON marshaler for parameter packing
@@ -484,7 +463,7 @@ func (r *CreateRawTransactionReq) Name() string {
 	return "createrawtransaction"
 }
 
-func (b *Bitcoin) CreateRawTx(ins []*TxIn, outs []*TxOut, locktime *uint32, replaceable *bool) (string, error) {
+func (b *Elements) CreateRawTx(ins []*TxIn, outs []*TxOut, locktime *uint32, replaceable *bool) (string, error) {
 	if len(outs) == 0 {
 		return "", errors.New("Must provide at least one output")
 	}
@@ -546,11 +525,11 @@ func (f *FundRawResult) HasChange() bool {
 }
 
 // Defaults to a segwit transaction
-func (b *Bitcoin) FundRawTx(txstring string) (*FundRawResult, error) {
+func (b *Elements) FundRawTx(txstring string) (*FundRawResult, error) {
 	return b.FundRawWithOptions(txstring, nil, nil)
 }
 
-func (b *Bitcoin) FundRawWithOptions(txstring string, options *FundRawOptions, iswitness *bool) (*FundRawResult, error) {
+func (b *Elements) FundRawWithOptions(txstring string, options *FundRawOptions, iswitness *bool) (*FundRawResult, error) {
 	var resp FundRawResult
 	err := b.request(&FundRawTransactionReq{
 		TxString:  txstring,
@@ -569,7 +548,7 @@ func (r *SendRawTransactionReq) Name() string {
 	return "sendrawtransaction"
 }
 
-func (b *Bitcoin) SendRawTx(txstring string) (string, error) {
+func (b *Elements) SendRawTx(txstring string) (string, error) {
 	var result string
 	err := b.request(&SendRawTransactionReq{
 		TxString: txstring,
@@ -641,7 +620,7 @@ func (tx *Tx) FindOutputIndex(address string) (uint32, error) {
 	return 0, errors.New(fmt.Sprintf("%s not found", address))
 }
 
-func (b *Bitcoin) DecodeRawTx(txstring string) (*Tx, error) {
+func (b *Elements) DecodeRawTx(txstring string) (*Tx, error) {
 	var resp Tx
 	err := b.request(&DecodeRawTransactionReq{
 		TxString: txstring,
@@ -650,8 +629,224 @@ func (b *Bitcoin) DecodeRawTx(txstring string) (*Tx, error) {
 	return &resp, err
 }
 
+type CreateWalletReq struct {
+	WalletName string `json:"wallet_name"`
+}
+
+func (r *CreateWalletReq) Name() string {
+	return "createwallet"
+}
+
+type WalletRes struct {
+	WalletName string `json:"name"`
+	Warning    string `json:"warning"`
+}
+
+func (b *Elements) CreateWallet(walletName string) (string, error) {
+	var resp WalletRes
+	err := b.request(&CreateWalletReq{
+		WalletName: walletName,
+	}, &resp)
+	return resp.WalletName, err
+
+}
+
+type LoadWalletReq struct {
+	FileName string `json:"filename"`
+}
+
+func (r *LoadWalletReq) Name() string {
+	return "loadwallet"
+}
+
+func (b *Elements) LoadWallet(fileName string) (string, error) {
+	var resp WalletRes
+	err := b.request(&LoadWalletReq{
+		FileName: fileName,
+	}, &resp)
+	return resp.WalletName, err
+
+}
+
+type ListWalletsReq struct{}
+
+func (l *ListWalletsReq) Name() string {
+	return "listwallets"
+}
+
+func (b *Elements) ListWallets() ([]string, error) {
+	var res []string
+	err := b.request(&ListWalletsReq{}, &res)
+	return res, err
+}
+
+type GetRawTransactionReq struct {
+	TxId      string `json:"txid"`
+	Blockhash string `json:"blockhash,omitempty"`
+}
+
+func (r *GetRawTransactionReq) Name() string {
+	return "getrawtransaction"
+}
+
+func (b *Elements) GetRawtransaction(txId string) (string, error) {
+	var resp string
+	err := b.request(&GetRawTransactionReq{TxId: txId}, &resp)
+	return resp, err
+}
+func (b *Elements) GetRawtransactionWithBlockHash(txId string, blockHash string) (string, error) {
+	var resp string
+	err := b.request(&GetRawTransactionReq{TxId: txId, Blockhash: blockHash}, &resp)
+	return resp, err
+}
+
+type GetBlockCountReq struct{}
+
+func (r *GetBlockCountReq) Name() string {
+	return "getblockcount"
+}
+
+func (b *Elements) GetBlockHeight() (uint64, error) {
+	var resp uint64
+	err := b.request(&GetBlockCountReq{}, &resp)
+	return resp, err
+}
+
+type GetBalanceRequest struct {
+}
+
+func (r *GetBalanceRequest) Name() string {
+	return "getbalance"
+}
+
+type GetBalanceRes struct {
+	BitcoinAmt float64 `json:"bitcoin"`
+}
+
+//GetBalance returns balance in sats
+func (b *Elements) GetBalance() (uint64, error) {
+	var balance GetBalanceRes
+	err := b.request(&GetBalanceRequest{}, &balance)
+
+	return ConvertBtc(balance.BitcoinAmt), err
+}
+
+type DumpBlindingKeyReq struct {
+	Address string `json:"address"`
+}
+
+func (r *DumpBlindingKeyReq) Name() string {
+	return "dumpblindingkey"
+}
+
+func (b *Elements) DumpBlindingKey(address string) (string, error) {
+	var resp string
+	err := b.request(&DumpBlindingKeyReq{Address: address}, &resp)
+	return resp, err
+}
+
+type ImportAddressReq struct {
+	Address string `json:"address"`
+	Label   string `json:"label"`
+	Rescan  bool   `json:"rescan"`
+}
+
+func (r *ImportAddressReq) Name() string {
+	return "importaddress"
+}
+
+type SignRawTransactionWithWalletReq struct {
+	HexString string `json:"hexstring"`
+}
+
+type SignRawTransactionWithWalletRes struct {
+	Hex      string    `json:"hex"`
+	Complete bool      `json:"complete"`
+	Errors   []TxError `json:"errors"`
+	Warning  string    `json:"warning"`
+}
+
+type TxError struct {
+	TxId      string `json:"txid"`
+	Vout      uint32 `json:"vout"`
+	ScriptSig string `json:"scriptSig"`
+	Sequence  uint32 `json:"sequence"`
+	Error     string `json:"error"`
+}
+
+func (s *SignRawTransactionWithWalletReq) Name() string {
+	return "signrawtransactionwithwallet"
+}
+
+func (b *Elements) SignRawTransactionWithWallet(hexString string) (SignRawTransactionWithWalletRes, error) {
+	var res SignRawTransactionWithWalletRes
+	err := b.request(&SignRawTransactionWithWalletReq{HexString: hexString}, &res)
+	return res, err
+}
+
+func (b *Elements) ImportAddress(address, label string, rescan bool) error {
+	var resp string
+	err := b.request(&ImportAddressReq{
+		Address: address,
+		Label:   label,
+		Rescan:  rescan,
+	}, resp)
+	return err
+}
+
+type UnblindRawTransactionReq struct {
+	Hex string `json:"hex"`
+}
+
+func (u *UnblindRawTransactionReq) Name() string {
+	return "unblindrawtransaction"
+}
+
+type UnblindRawTransactionRes struct {
+	Hex string `json:"hex"`
+}
+
+func (b *Elements) UnblindRawtransaction(hex string) (string, error) {
+	var res UnblindRawTransactionRes
+	err := b.request(&UnblindRawTransactionReq{Hex: hex}, &res)
+	return res.Hex, err
+}
+
+type WalletCreateFundedPsbtReq struct {
+	Inputs  []PsbtInput  `json:"inputs"`
+	Outputs []PsbtOutput `json:"outputs"`
+}
+
+type BlindRawTransactionRes struct {
+	HexString string `json:"hexstring"`
+}
+
+func (b *BlindRawTransactionRes) Name() string {
+	return "blindrawtransaction"
+}
+
+func (e *Elements) BlindRawTransaction(hex string) (string, error) {
+	var res string
+	err := e.request(&BlindRawTransactionRes{HexString: hex}, &res)
+	return res, err
+}
+
+type PsbtInput struct {
+	TxId     string `json:"txid"`
+	Vout     uint32 `json:"vout"`
+	Sequence uint32 `json:"sequence"`
+}
+
+type PsbtOutput struct {
+	Values map[string]float64 `json:"values"`
+	Data   string             `json:"data"`
+}
+
+type WalletCreatFundedPsbtRes struct {
+}
+
 // for now, use a counter as the id for requests
-func (b *Bitcoin) NextId() *jrpc2.Id {
+func (b *Elements) NextId() *jrpc2.Id {
 	val := atomic.AddInt64(&b.requestCounter, 1)
 	return jrpc2.NewIdAsInt(val)
 }

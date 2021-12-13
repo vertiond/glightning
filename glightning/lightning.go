@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/niftynei/glightning/jrpc2"
+	"github.com/sputn1ck/glightning/jrpc2"
 	"log"
 	"path/filepath"
 )
@@ -26,15 +26,24 @@ func (l *Lightning) SetTimeout(secs uint) {
 	l.client.SetTimeout(secs)
 }
 
-func (l *Lightning) StartUp(rpcfile, lightningDir string) {
+func (l *Lightning) StartUp(rpcfile, lightningDir string) error {
 	up := make(chan bool)
-	go func(l *Lightning, rpcfile, lightningDir string, up chan bool) {
+	errChan := make(chan error)
+	go func(l *Lightning, rpcfile, lightningDir string, up chan bool, errChan chan error) {
 		err := l.client.SocketStart(filepath.Join(lightningDir, rpcfile), up)
 		if err != nil {
-			log.Fatal(err)
+			errChan <- err
 		}
-	}(l, rpcfile, lightningDir, up)
-	l.isUp = <-up
+	}(l, rpcfile, lightningDir, up, errChan)
+
+	for {
+		select {
+		case l.isUp = <-up:
+			return nil
+		case err := <-errChan:
+			return err
+		}
+	}
 }
 
 func (l *Lightning) Shutdown() {
@@ -744,6 +753,7 @@ type DecodedBolt11 struct {
 	Routes             [][]BoltRoute `json:"routes"`
 	Extra              []BoltExtra   `json:"extra"`
 	PaymentHash        string        `json:"payment_hash"`
+	PaymentSecret      string        `json:"payment_secret"`
 	Signature          string        `json:"signature"`
 	Features           Hexed         `json:"features"`
 }
@@ -1121,7 +1131,7 @@ type SendPayRequest struct {
 	MilliSatoshis *uint64    `json:"msatoshi,omitempty"`
 	Bolt11        string     `json:"bolt11,omitempty"`
 	PaymentSecret string     `json:"payment_secret,omitempty"`
-	PartId        *uint64    `json:"partid,omitempty"`
+	PartId        uint64     `json:"partid,omitempty"`
 }
 
 func (r SendPayRequest) Name() string {
@@ -1129,20 +1139,20 @@ func (r SendPayRequest) Name() string {
 }
 
 type SendPayFields struct {
-	Id                    uint64 `json:"id"`
-	PaymentHash           string `json:"payment_hash"`
-	Destination           string `json:"destination,omitempty"`
-	AmountMilliSatoshiRaw uint64 `json:"msatoshi,omitempty"`
-	AmountMilliSatoshi    string `json:"amount_msat"`
-	MilliSatoshiSentRaw   uint64 `json:"msatoshi_sent"`
-	MilliSatoshiSent      string `json:"amount_sent_msat"`
-	CreatedAt             uint64 `json:"created_at"`
-	Status                string `json:"status"`
-	PaymentPreimage       string `json:"payment_preimage,omitempty"`
-	Label                 string `json:"label,omitempty"`
-	Bolt11                string `json:"bolt11,omitempty"`
-	PartId                uint64 `json:"partid,omitempty"`
-	ErrorOnion            string `json:"erroronion,omitempty"`
+	Id                    uint64  `json:"id"`
+	PaymentHash           string  `json:"payment_hash"`
+	Destination           string  `json:"destination,omitempty"`
+	AmountMilliSatoshiRaw uint64  `json:"msatoshi,omitempty"`
+	AmountMilliSatoshi    string  `json:"amount_msat"`
+	MilliSatoshiSentRaw   uint64  `json:"msatoshi_sent"`
+	MilliSatoshiSent      string  `json:"amount_sent_msat"`
+	CreatedAt             float64 `json:"created_at"`
+	Status                string  `json:"status"`
+	PaymentPreimage       string  `json:"payment_preimage,omitempty"`
+	Label                 string  `json:"label,omitempty"`
+	Bolt11                string  `json:"bolt11,omitempty"`
+	PartId                uint64  `json:"partid,omitempty"`
+	ErrorOnion            string  `json:"erroronion,omitempty"`
 }
 
 type SendPayResult struct {
@@ -1152,7 +1162,7 @@ type SendPayResult struct {
 
 // SendPay, but without description or millisatoshi value
 func (l *Lightning) SendPayLite(route []RouteHop, paymentHash string) (*SendPayResult, error) {
-	return l.SendPay(route, paymentHash, "", nil, "", "", nil)
+	return l.SendPay(route, paymentHash, "", nil, "", "", 0)
 }
 
 // Send along {route} in return for preimage of {paymentHash}
@@ -1181,7 +1191,7 @@ func (l *Lightning) SendPayLite(route []RouteHop, paymentHash string) (*SendPayR
 // prevents accidental multiple payments. Calls with the same 'paymentHash',
 // 'msat' and destination as a previous successful payment will return
 // immediately with a success, even if the route is different.
-func (l *Lightning) SendPay(route []RouteHop, paymentHash, label string, msat *uint64, bolt11 string, paymentSecret string, partId *uint64) (*SendPayResult, error) {
+func (l *Lightning) SendPay(route []RouteHop, paymentHash, label string, msat *uint64, bolt11 string, paymentSecret string, partId uint64) (*SendPayResult, error) {
 	if paymentHash == "" {
 		return nil, fmt.Errorf("Must specify a paymentHash to pay")
 	}
@@ -1203,9 +1213,9 @@ func (l *Lightning) SendPay(route []RouteHop, paymentHash, label string, msat *u
 }
 
 type WaitSendPayRequest struct {
-	PaymentHash string  `json:"payment_hash"`
-	Timeout     uint    `json:"timeout,omitempty"`
-	PartId      *uint64 `json:"partid,omitempty"`
+	PaymentHash string `json:"payment_hash"`
+	Timeout     uint   `json:"timeout,omitempty"`
+	PartId      uint64 `json:"partid,omitempty"`
 }
 
 func (r WaitSendPayRequest) Name() string {
@@ -1239,10 +1249,10 @@ type PaymentErrorData struct {
 //
 // NB: Blocking. Bypasses the default client request timeout mechanism
 func (l *Lightning) WaitSendPay(paymentHash string, timeout uint) (*SendPayFields, error) {
-	return l.WaitSendPayPart(paymentHash, timeout, nil)
+	return l.WaitSendPayPart(paymentHash, timeout, 0)
 }
 
-func (l *Lightning) WaitSendPayPart(paymentHash string, timeout uint, partId *uint64) (*SendPayFields, error) {
+func (l *Lightning) WaitSendPayPart(paymentHash string, timeout uint, partId uint64) (*SendPayFields, error) {
 	if paymentHash == "" {
 		return nil, fmt.Errorf("Must provide a payment hash to pay")
 	}
@@ -2008,8 +2018,10 @@ type TxPrepare struct {
 }
 
 type TxResult struct {
-	Tx   string `json:"unsigned_tx"`
-	TxId string `json:"txid"`
+	UnsignedTx string `json:"unsigned_tx"`
+	SignedTx   string `json:"tx"`
+	TxId       string `json:"txid"`
+	Psbt       string `json:"psbt"`
 }
 
 func (r *TxPrepare) Name() string {
@@ -2192,6 +2204,27 @@ func (l *Lightning) DevForgetChannel(peerId string, force bool) (*ForgetChannelR
 	var result ForgetChannelResult
 	err := l.client.Request(&DevForgetChannelRequest{peerId, force}, &result)
 	return &result, err
+}
+
+type CustomMessageRequest struct {
+	NodeId  string `json:"node_id"`
+	Message string `json:"msg"`
+}
+
+func (r *CustomMessageRequest) Name() string {
+	return "sendcustommsg"
+}
+
+type CustomMessageResult struct {
+	Code    uint32 `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"Status"`
+}
+
+func (l *Lightning) SendCustomMessage(nodeId, message string) (*CustomMessageResult, error) {
+	var result *CustomMessageResult
+	err := l.client.Request(&CustomMessageRequest{NodeId: nodeId, Message: message}, &result)
+	return result, err
 }
 
 type DisconnectRequest struct {
@@ -2458,4 +2491,5 @@ func init() {
 	Lightning_RpcMethods[(&SetChannelFeeRequest{}).Name()] = func() jrpc2.Method { return new(SetChannelFeeRequest) }
 	Lightning_RpcMethods[(&PluginRequest{}).Name()] = func() jrpc2.Method { return new(PluginRequest) }
 	Lightning_RpcMethods[(&SharedSecretRequest{}).Name()] = func() jrpc2.Method { return new(SharedSecretRequest) }
+	Lightning_RpcMethods[(&CustomMessageRequest{}).Name()] = func() jrpc2.Method { return new(CustomMessageRequest) }
 }
